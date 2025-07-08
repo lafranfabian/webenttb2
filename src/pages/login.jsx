@@ -78,10 +78,6 @@ export default function Login({ onLoginSuccess }) {
           {loading ? 'Memproses...' : 'Login'}
         </button>
 
-        <p className="login-register">
-          Belum Punya Akun?{' '}
-          <a href="#" className="login-link">Daftar Disini</a>
-        </p>
       </div>
     </div>
   );

@@ -12,6 +12,8 @@ export default function DosenDashboard({ user, onLogout }) {
   const [nextJadwal, setNextJadwal] = useState(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [newPassword, setNewPassword] = useState('');
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editedProfile, setEditedProfile] = useState({ email: '', nip: '' });
 
   const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
   const now = new Date();
@@ -40,6 +42,8 @@ export default function DosenDashboard({ user, onLogout }) {
       const prodiNama = prodi?.find(p => p.id === prof?.prodi_id)?.nama || '-';
       setProfile({ ...prof, prodi_nama: prodiNama });
 
+      setEditedProfile({ email: prof.email, nip: prof.nip });
+
       if (prof?.default_password === true) {
         setShowPasswordModal(true);
       }
@@ -49,9 +53,7 @@ export default function DosenDashboard({ user, onLogout }) {
         .select('*')
         .eq('dosen_id', user.id);
 
-      const { data: allMatkul } = await supabase
-        .from('modules')
-        .select('id, name, code, sks');
+      const { data: allMatkul } = await supabase.from('modules').select('id, name, code, sks');
 
       const enriched = jadwalData.map(j => ({
         ...j,
@@ -87,7 +89,6 @@ export default function DosenDashboard({ user, onLogout }) {
     }
 
     const { error } = await supabase.auth.updateUser({ password: newPassword });
-
     if (error) {
       alert('Gagal update password: ' + error.message);
     } else {
@@ -97,7 +98,20 @@ export default function DosenDashboard({ user, onLogout }) {
     }
   };
 
-  if (!user?.id) return <p>Memuat data...</p>;
+  const handleSaveProfile = async () => {
+    const { error } = await supabase
+      .from('profiles')
+      .update(editedProfile)
+      .eq('id', user.id);
+
+    if (!error) {
+      setProfile({ ...profile, ...editedProfile });
+      setShowEditModal(false);
+      alert('Profil berhasil diperbarui.');
+    } else {
+      alert('Gagal update profil: ' + error.message);
+    }
+  };
 
   return (
     <div className="admin-container">
@@ -113,7 +127,7 @@ export default function DosenDashboard({ user, onLogout }) {
         <header className="admin-header">
           <h2>Module Dosen UMB Jakarta</h2>
           <div className="admin-user">
-            <span>{profile?.full_name || 'Dosen'}</span>
+            <span>{profile?.full_name}</span>
             <button onClick={onLogout}>Logout</button>
           </div>
         </header>
@@ -138,11 +152,13 @@ export default function DosenDashboard({ user, onLogout }) {
             {nextJadwal && (
               <section className="admin-section">
                 <h3>Jadwal Selanjutnya</h3>
-                <div className="next-jadwal-card">
-                  <p><strong>{nextJadwal.matkul?.name}</strong></p>
-                  <p>{nextJadwal.hari}, jam {nextJadwal.jam_mulai}</p>
-                  <p>
-                    Mulai dalam {
+                <div className="dashboard-cards">
+                  <div className="card next-jadwal-card">
+                    <p><strong>{nextJadwal.matkul?.name}</strong></p>
+                    <p><strong>Hari:</strong> {nextJadwal.hari}</p>
+                    <p><strong>Jam:</strong> {nextJadwal.jam_mulai} - {nextJadwal.jam_selesai}</p>
+                    <p><strong>Ruangan:</strong> {nextJadwal.ruangan_kode}</p>
+                    <p><strong>Mulai Dalam:</strong> {
                       (() => {
                         const target = parseJam(nextJadwal.jam_mulai, nextJadwal.hari);
                         const diffMs = target - new Date();
@@ -151,8 +167,8 @@ export default function DosenDashboard({ user, onLogout }) {
                         const menit = diffMin % 60;
                         return jam > 0 ? `${jam} jam ${menit} menit` : `${menit} menit`;
                       })()
-                    }
-                  </p>
+                    }</p>
+                  </div>
                 </div>
               </section>
             )}
@@ -220,10 +236,34 @@ export default function DosenDashboard({ user, onLogout }) {
                     <tr><td>Program Studi</td><td>{profile.prodi_nama}</td></tr>
                   </tbody>
                 </table>
-                <button>Edit Profile</button>
+                <button onClick={() => setShowEditModal(true)}>Edit Profile</button>
               </div>
             </div>
           </section>
+        )}
+
+        {showEditModal && (
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <h3>Edit Profil</h3>
+              <input
+                type="email"
+                placeholder="Email"
+                value={editedProfile.email}
+                onChange={e => setEditedProfile({ ...editedProfile, email: e.target.value })}
+              />
+              <input
+                type="text"
+                placeholder="NIP"
+                value={editedProfile.nip}
+                onChange={e => setEditedProfile({ ...editedProfile, nip: e.target.value })}
+              />
+              <div style={{ marginTop: 16 }}>
+                <button onClick={handleSaveProfile}>Simpan</button>
+                <button style={{ marginLeft: 12, background: '#ccc', color: '#333' }} onClick={() => setShowEditModal(false)}>Batal</button>
+              </div>
+            </div>
+          </div>
         )}
 
         {showPasswordModal && (
