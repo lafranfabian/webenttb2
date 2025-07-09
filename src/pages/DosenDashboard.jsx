@@ -4,7 +4,9 @@ import LogoUMB from '../assets/LOGO.png';
 import supabase from '../utils/supabase';
 import GantiPasswordModal from '../components/GantiPasswordModal';
 
+// Komponen utama Dashboard Dosen
 export default function DosenDashboard({ user, onLogout }) {
+  // State untuk navigasi, data profil, jadwal, dan modal
   const [activeMenu, setActiveMenu] = useState('dashboard');
   const [profile, setProfile] = useState(null);
   const [jadwal, setJadwal] = useState([]);
@@ -15,9 +17,11 @@ export default function DosenDashboard({ user, onLogout }) {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editedProfile, setEditedProfile] = useState({ email: '', nip: '' });
 
+  // Konstanta hari dan waktu sekarang
   const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
   const now = new Date();
 
+  // Fungsi bantu: Mengubah jam dan hari menjadi objek Date
   function parseJam(jam, hari) {
     const [jamStr, menitStr] = jam.split(':');
     const target = new Date();
@@ -28,10 +32,12 @@ export default function DosenDashboard({ user, onLogout }) {
     return target;
   }
 
+  // Ambil data profil, jadwal, matkul ketika komponen dimount
   useEffect(() => {
     if (!user?.id) return;
 
     const fetchData = async () => {
+      // Ambil data prodi dan profil dosen
       const { data: prodi } = await supabase.from('prodi').select('*');
       const { data: prof } = await supabase
         .from('profiles')
@@ -39,15 +45,19 @@ export default function DosenDashboard({ user, onLogout }) {
         .eq('id', user.id)
         .single();
 
+      // Gabungkan data prodi ke dalam data profil
       const prodiNama = prodi?.find(p => p.id === prof?.prodi_id)?.nama || '-';
       setProfile({ ...prof, prodi_nama: prodiNama });
 
+      // Set state untuk form edit
       setEditedProfile({ email: prof.email, nip: prof.nip });
 
+      // Tampilkan modal ganti password jika masih default
       if (prof?.default_password === true) {
         setShowPasswordModal(true);
       }
 
+      // Ambil data jadwal dan matkul
       const { data: jadwalData } = await supabase
         .from('jadwal')
         .select('*')
@@ -55,6 +65,7 @@ export default function DosenDashboard({ user, onLogout }) {
 
       const { data: allMatkul } = await supabase.from('modules').select('id, name, code, sks');
 
+      // Gabungkan info matkul ke dalam data jadwal
       const enriched = jadwalData.map(j => ({
         ...j,
         matkul: allMatkul.find(m => m.id === j.matkul_id),
@@ -62,6 +73,7 @@ export default function DosenDashboard({ user, onLogout }) {
 
       setJadwal(enriched);
 
+      // Dapatkan daftar matkul unik
       const map = new Map();
       const unique = [];
       enriched.forEach(j => {
@@ -72,6 +84,7 @@ export default function DosenDashboard({ user, onLogout }) {
       });
       setMatkulUnik(unique);
 
+      // Cari jadwal terdekat yang belum lewat
       const upcoming = enriched
         .filter(j => parseJam(j.jam_mulai, j.hari) > now)
         .sort((a, b) => parseJam(a.jam_mulai, a.hari) - parseJam(b.jam_mulai, b.hari));
@@ -82,6 +95,7 @@ export default function DosenDashboard({ user, onLogout }) {
     fetchData();
   }, [user]);
 
+  // Fungsi ubah password
   const handleChangePassword = async () => {
     if (!newPassword || newPassword.length < 6) {
       alert('Password harus minimal 6 karakter');
@@ -98,6 +112,7 @@ export default function DosenDashboard({ user, onLogout }) {
     }
   };
 
+  // Fungsi simpan perubahan profil
   const handleSaveProfile = async () => {
     const { error } = await supabase
       .from('profiles')
@@ -115,6 +130,7 @@ export default function DosenDashboard({ user, onLogout }) {
 
   return (
     <div className="admin-container">
+      {/* Sidebar navigasi */}
       <aside className="admin-sidebar">
         <img src={LogoUMB} alt="Logo UMB" className="sidebar-logo" />
         <ul className="menu-list">
@@ -123,6 +139,7 @@ export default function DosenDashboard({ user, onLogout }) {
         </ul>
       </aside>
 
+      {/* Konten utama */}
       <main className="admin-content">
         <header className="admin-header">
           <h2>Module Dosen UMB Jakarta</h2>
@@ -132,6 +149,7 @@ export default function DosenDashboard({ user, onLogout }) {
           </div>
         </header>
 
+        {/* Menu Dashboard */}
         {activeMenu === 'dashboard' && (
           <>
             <section className="admin-section">
@@ -149,6 +167,7 @@ export default function DosenDashboard({ user, onLogout }) {
               </div>
             </section>
 
+            {/* Jadwal terdekat */}
             {nextJadwal && (
               <section className="admin-section">
                 <h3>Jadwal Selanjutnya</h3>
@@ -173,6 +192,7 @@ export default function DosenDashboard({ user, onLogout }) {
               </section>
             )}
 
+            {/* Tabel Jadwal */}
             <section className="admin-section">
               <h3>Jadwal Saya</h3>
               <table className="admin-table">
@@ -197,6 +217,7 @@ export default function DosenDashboard({ user, onLogout }) {
               </table>
             </section>
 
+            {/* Tabel Mata Kuliah */}
             <section className="admin-section">
               <h3>Mata Kuliah Saya</h3>
               <table className="admin-table">
@@ -223,6 +244,7 @@ export default function DosenDashboard({ user, onLogout }) {
           </>
         )}
 
+        {/* Menu Profile */}
         {activeMenu === 'profile' && profile && (
           <section className="admin-section">
             <h3>Profil Saya</h3>
@@ -242,6 +264,7 @@ export default function DosenDashboard({ user, onLogout }) {
           </section>
         )}
 
+        {/* Modal Edit Profile */}
         {showEditModal && (
           <div className="modal-overlay">
             <div className="modal-content">
@@ -266,6 +289,7 @@ export default function DosenDashboard({ user, onLogout }) {
           </div>
         )}
 
+        {/* Modal Ganti Password */}
         {showPasswordModal && (
           <GantiPasswordModal
             newPassword={newPassword}

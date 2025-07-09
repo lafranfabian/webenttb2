@@ -5,34 +5,34 @@ import LogoUMB from '../assets/logo.png';
 import TambahDosenModal from '../components/TambahDosenModal';
 import TambahMatkulModal from '../components/TambahMatkul';
 import TambahJadwalModal from '../components/TambahJadwalModal';
+import TambahMahasiswaModal from '../components/TambahMahasiswaModal';
 import supabase from '../utils/supabase';
 
 export default function AdminDashboard() {
-  // State untuk menu aktif: dosen / matkul / jadwal
   const [activeMenu, setActiveMenu] = useState('dosen');
 
-  // State kontrol untuk modal tambah/edit
   const [showModal, setShowModal] = useState(false);
   const [showMatkulModal, setShowMatkulModal] = useState(false);
   const [showJadwalModal, setShowJadwalModal] = useState(false);
+  const [showMahasiswaModal, setShowMahasiswaModal] = useState(false);
 
-  // State data yang sedang dipilih untuk diedit
   const [selectedDosen, setSelectedDosen] = useState(null);
   const [selectedMatkul, setSelectedMatkul] = useState(null);
   const [selectedJadwal, setSelectedJadwal] = useState(null);
+  const [selectedMahasiswa, setSelectedMahasiswa] = useState(null);
 
-  // Data list dari database
   const [dosenList, setDosenList] = useState([]);
+  const [mahasiswaList, setMahasiswaList] = useState([]);
   const [matkulList, setMatkulList] = useState([]);
   const [jadwalList, setJadwalList] = useState([]);
+  const [prodiList, setProdiList] = useState([]);
 
-  // State pencarian
   const [searchMatkul, setSearchMatkul] = useState('');
   const [searchDosen, setSearchDosen] = useState('');
+  const [searchMahasiswa, setSearchMahasiswa] = useState('');
 
   const navigate = useNavigate();
 
-  // Ambil data dosen dari Supabase
   const fetchDosen = async () => {
     const { data } = await supabase
       .from('profiles')
@@ -41,13 +41,16 @@ export default function AdminDashboard() {
     if (data) setDosenList(data);
   };
 
-  // Ambil data mata kuliah dari Supabase
+  const fetchMahasiswa = async () => {
+    const { data } = await supabase.from('mahasiswa').select('id, nama, nim, email, prodi_id');
+    if (data) setMahasiswaList(data);
+  };
+
   const fetchMatkul = async () => {
     const { data } = await supabase.from('modules').select();
     if (data) setMatkulList(data);
   };
 
-  // Ambil data jadwal dari Supabase
   const fetchJadwal = async () => {
     const { data } = await supabase
       .from('jadwal')
@@ -63,38 +66,50 @@ export default function AdminDashboard() {
     if (data) setJadwalList(data);
   };
 
-  // Ambil semua data saat pertama kali render
+  const fetchProdi = async () => {
+    const { data } = await supabase.from('prodi').select();
+    if (data) setProdiList(data);
+  };
+
   useEffect(() => {
     fetchDosen();
+    fetchMahasiswa();
     fetchMatkul();
     fetchJadwal();
+    fetchProdi();
   }, []);
 
-  // Logout dan kembali ke login
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate('/login');
   };
 
-  // Fungsi tombol tambah dosen
   const handleAddDosen = () => {
-    setSelectedDosen(null); // kosong berarti tambah baru
+    setSelectedDosen(null);
     setShowModal(true);
   };
 
-  // Fungsi tombol edit dosen
-  const handleEditDosen = (dosen) => {
-    setSelectedDosen(dosen);
-    setShowModal(true);
+  const handleAddMahasiswa = () => {
+    setSelectedMahasiswa(null);
+    setShowMahasiswaModal(true);
   };
 
-  // Hapus dosen dan semua jadwal terkait
+  const handleAddMatkul = () => {
+    setSelectedMatkul(null);
+    setShowMatkulModal(true);
+  };
+
+  const handleAddJadwal = () => {
+    setSelectedJadwal(null);
+    setShowJadwalModal(true);
+  };
+
   const handleDeleteDosen = async (id) => {
     if (confirm('Yakin ingin menghapus dosen ini?')) {
-      await supabase.from('jadwal').delete().eq('dosen_id', id); // hapus jadwal
-      const { error } = await supabase.from('profiles').delete().eq('id', id); // hapus dosen
+      await supabase.from('jadwal').delete().eq('dosen_id', id);
+      const { error } = await supabase.from('profiles').delete().eq('id', id);
       if (!error) {
-        fetchDosen(); // refresh data
+        fetchDosen();
         fetchJadwal();
       } else {
         alert('Gagal menghapus dosen');
@@ -102,19 +117,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // Tambah matkul baru
-  const handleAddMatkul = () => {
-    setSelectedMatkul(null);
-    setShowMatkulModal(true);
-  };
-
-  // Edit matkul yang ada
-  const handleEditMatkul = (matkul) => {
-    setSelectedMatkul(matkul);
-    setShowMatkulModal(true);
-  };
-
-  // Hapus mata kuliah
   const handleDeleteMatkul = async (id) => {
     if (confirm('Yakin ingin menghapus matkul ini?')) {
       await supabase.from('modules').delete().eq('id', id);
@@ -122,27 +124,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // Tambah jadwal baru
-  const handleAddJadwal = () => {
-    setSelectedJadwal(null);
-    setShowJadwalModal(true);
-  };
-
-  // Edit jadwal yang ada
-  const handleEditJadwal = (jadwal) => {
-    setSelectedJadwal({
-      id: jadwal.id,
-      hari: jadwal.hari,
-      jam_mulai: jadwal.jam_mulai,
-      jam_selesai: jadwal.jam_selesai,
-      ruangan_kode: jadwal.ruangan_kode?.kode,
-      matkul_id: jadwal.matkul_id?.id,
-      dosen_id: jadwal.dosen_id?.id,
-    });
-    setShowJadwalModal(true);
-  };
-
-  // Hapus jadwal
   const handleDeleteJadwal = async (id) => {
     if (confirm('Yakin ingin menghapus jadwal ini?')) {
       await supabase.from('jadwal').delete().eq('id', id);
@@ -150,32 +131,57 @@ export default function AdminDashboard() {
     }
   };
 
-  // Filter pencarian matkul
+  const handleEditDosen = (d) => {
+    setSelectedDosen(d);
+    setShowModal(true);
+  };
+
+  const handleEditMatkul = (m) => {
+    setSelectedMatkul(m);
+    setShowMatkulModal(true);
+  };
+
+  const handleEditJadwal = (j) => {
+    setSelectedJadwal({
+      id: j.id,
+      hari: j.hari,
+      jam_mulai: j.jam_mulai,
+      jam_selesai: j.jam_selesai,
+      ruangan_kode: j.ruangan_kode?.kode,
+      matkul_id: j.matkul_id?.id,
+      dosen_id: j.dosen_id?.id,
+    });
+    setShowJadwalModal(true);
+  };
+
   const filteredMatkul = matkulList.filter(
     (m) =>
       m.name.toLowerCase().includes(searchMatkul.toLowerCase()) ||
       m.code.toLowerCase().includes(searchMatkul.toLowerCase())
   );
 
-  // Filter pencarian dosen
   const filteredDosen = dosenList.filter((d) =>
     d.full_name.toLowerCase().includes(searchDosen.toLowerCase())
   );
 
+  const filteredMahasiswa = mahasiswaList.filter((m) =>
+    (m.nama || '').toLowerCase().includes(searchMahasiswa.toLowerCase()) ||
+    (m.nim || '').toLowerCase().includes(searchMahasiswa.toLowerCase())
+  );
+
   return (
     <div className="admin-container">
-      {/* Sidebar Navigasi */}
       <aside className="admin-sidebar">
         <img src={LogoUMB} alt="Logo UMB" className="sidebar-logo" />
         <ul className="menu-list">
           <li className={activeMenu === 'dosen' ? 'active' : ''} onClick={() => setActiveMenu('dosen')}>Dosen</li>
+          <li className={activeMenu === 'mahasiswa' ? 'active' : ''} onClick={() => setActiveMenu('mahasiswa')}>Mahasiswa</li>
           <li className={activeMenu === 'matkul' ? 'active' : ''} onClick={() => setActiveMenu('matkul')}>Mata Kuliah</li>
           <li className={activeMenu === 'jadwal' ? 'active' : ''} onClick={() => setActiveMenu('jadwal')}>Jadwal</li>
         </ul>
       </aside>
 
       <main className="admin-content">
-        {/* Header */}
         <header className="admin-header">
           <h2>Module Dosen UMB Jakarta</h2>
           <div className="admin-user">
@@ -184,7 +190,45 @@ export default function AdminDashboard() {
           </div>
         </header>
 
-        {/* Halaman Manajemen Dosen */}
+        {/* MAHASISWA */}
+        {activeMenu === 'mahasiswa' && (
+          <section className="admin-section">
+            <h3>Manajemen Mahasiswa</h3>
+            <div className="mahasiswa-controls">
+              <input
+                type="text"
+                placeholder="🔍 Cari nama/NIM"
+                value={searchMahasiswa}
+                onChange={(e) => setSearchMahasiswa(e.target.value)}
+              />
+              <button className="add-button" onClick={handleAddMahasiswa}>Tambah Mahasiswa</button>
+            </div>
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>No</th>
+                  <th>Nama</th>
+                  <th>NIM</th>
+                  <th>Email</th>
+                  <th>Prodi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredMahasiswa.map((m, i) => (
+                  <tr key={m.id}>
+                    <td>{i + 1}</td>
+                    <td>{m.nama}</td>
+                    <td>{m.nim}</td>
+                    <td>{m.email}</td>
+                    <td>{prodiList.find((p) => p.id === m.prodi_id)?.nama || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        )}
+
+        {/* DOSEN */}
         {activeMenu === 'dosen' && (
           <section className="admin-section">
             <h3>Manajemen Dosen</h3>
@@ -215,7 +259,7 @@ export default function AdminDashboard() {
                     <td>{d.full_name}</td>
                     <td>{d.nip}</td>
                     <td>{d.email}</td>
-                    <td>{d.prodi_id}</td>
+                    <td>{prodiList.find((p) => p.id === d.prodi_id)?.nama || '-'}</td>
                     <td>
                       <button onClick={() => handleEditDosen(d)}>✎</button>
                       <button onClick={() => handleDeleteDosen(d.id)}>🗑️</button>
@@ -227,7 +271,7 @@ export default function AdminDashboard() {
           </section>
         )}
 
-        {/* Halaman Manajemen Mata Kuliah */}
+        {/* MATA KULIAH */}
         {activeMenu === 'matkul' && (
           <section className="admin-section">
             <h3>Manajemen Mata Kuliah</h3>
@@ -258,7 +302,7 @@ export default function AdminDashboard() {
                     <td>{m.name}</td>
                     <td>{m.code}</td>
                     <td>{m.sks}</td>
-                    <td>{m.prodi_id === 0 ? 'Mata Kuliah Umum' : m.prodi_id}</td>
+                    <td>{prodiList.find((p) => p.id === m.prodi_id)?.nama || (m.prodi_id === 0 ? 'Mata Kuliah Umum' : '-')}</td>
                     <td>
                       <button onClick={() => handleEditMatkul(m)}>✎</button>
                       <button onClick={() => handleDeleteMatkul(m.id)}>🗑️</button>
@@ -270,7 +314,7 @@ export default function AdminDashboard() {
           </section>
         )}
 
-        {/* Halaman Jadwal */}
+        {/* JADWAL */}
         {activeMenu === 'jadwal' && (
           <section className="admin-section">
             <h3>Jadwal Mata Kuliah</h3>
@@ -306,7 +350,7 @@ export default function AdminDashboard() {
         )}
       </main>
 
-      {/* MODAL TAMBAH/EDIT */}
+      {/* MODALS */}
       {showModal && (
         <TambahDosenModal
           onClose={() => {
@@ -316,7 +360,6 @@ export default function AdminDashboard() {
           existingData={selectedDosen}
         />
       )}
-
       {showMatkulModal && (
         <TambahMatkulModal
           onClose={() => setShowMatkulModal(false)}
@@ -327,7 +370,6 @@ export default function AdminDashboard() {
           existingData={selectedMatkul}
         />
       )}
-
       {showJadwalModal && (
         <TambahJadwalModal
           onClose={() => setShowJadwalModal(false)}
@@ -336,6 +378,16 @@ export default function AdminDashboard() {
             setShowJadwalModal(false);
           }}
           existingData={selectedJadwal}
+        />
+      )}
+      {showMahasiswaModal && (
+        <TambahMahasiswaModal
+          onClose={() => {
+            setShowMahasiswaModal(false);
+            fetchMahasiswa();
+          }}
+          existingData={selectedMahasiswa}
+          prodiList={prodiList}
         />
       )}
     </div>
